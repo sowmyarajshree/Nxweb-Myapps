@@ -1,0 +1,267 @@
+frappe.ui.form.on('Task',{
+    refresh:function(frm,doc){
+        frm.set_query("nx_boq_id", function(doc){
+            return{
+                "filters":{
+                    "work_status":"Not Scheduled",
+                    "project":cur_frm.doc.project
+                }
+            }
+        });
+	/*frm.add_custom_button(__("First and Final Bill"),
+	function(){ frappe.route_options = {"project_name" : frm.doc.project,
+	                                    "project_structure" : frm.doc.nx_project_structure,
+	                                    "task_id":frm.doc.name,
+	                                    "item_of_work": frm.doc.nx_item_of_work
+	                                    };
+	           //frappe.set_route("Form","First and Final Bill","New First and Final Bill");
+	            frappe.new_doc("First and Final Bill");
+	            }, __("Create"));
+	           
+	frm.add_custom_button(__("Labour Bill"),
+	function(){frappe.route_options ={"task" :frm.doc.name,
+	                                   "project_name":frm.doc.project,
+	                                   "project_structure":frm.doc.nx_project_structure,
+	                                   "task_id":frm.doc.name,
+	                                   "item_of_work": frm.doc.nx_item_of_work
+	                                };
+	           //frappe.set_route("Form","Labour Bill","New Labour Bill");
+	            frappe.new_doc("Labour Bill");
+	            },__("Create"));
+	           cur_frm.page.set_inner_btn_group_as_primary(__('Create'));*/
+
+/*	frm.add_custom_button(__("Stock Entry"),
+        function(){
+        frm.trigger("make_stock_entry");
+        },__("Create"));
+        cur_frm.page.set_inner_btn_group_as_primary(__('Create'));*/
+ 
+    if (cur_frm.doc.boq_status !== "Completed"){
+ 	frm.add_custom_button(__("Labour Progress Entry"),
+        function(){
+            frm.trigger("make_measurement_sheet");
+        },__("Create"));       
+               
+    }
+        
+    		
+				
+	
+},
+    make_measurement_sheet:function(frm,doc){
+        frappe.call({
+                method: "construction.construction.task.make_measurement_sheet",
+                args: {"docname": frm.doc.name,
+                       "project":cur_frm.doc.project,
+                       "project_name":cur_frm.doc.subject,
+                       "project_name":frm.doc.nx_project_structure,
+                      "item_of_work":frm.doc.nx_item_of_work,
+                      "boq":frm.doc.nx_boq_id
+                    
+                },
+                freeze: true,
+                callback: function(r){
+                    if(!r.exc) {
+                        var doc = frappe.model.sync(r.message);
+                        frappe.set_route("Form", r.message.doctype, r.message.name);
+                    }
+                }
+        });
+    }
+    
+}); 
+
+
+/*frappe.ui.form.on('Task', {
+	refresh: function(frm,doc) {
+		     cur_frm.add_custom_button("Make Stock Entry",()=>make_stock_entry(),__('Create'));
+		function make_stock_entry() {
+		            var me = cur_frm;
+					const fields = [{
+						label: 'Items',
+						fieldtype: 'Table',
+						fieldname: 'pop_up_items',
+						description: __('Select Material and Qty for Stock Entry'),
+						fields: [{
+							fieldtype: 'Read Only',
+							fieldname: 'item_code',
+							read_only: 1,
+							label: __('Item Code'),
+							in_list_view: 1
+						}, {
+							fieldtype: 'Float',
+							fieldname: 'qty',
+							reqd: 1,
+							read_only:1,
+							label: __('Qty'),
+							in_list_view: 1
+						},
+						{
+							fieldtype: 'Float',
+							fieldname: 'stock_entry_qty',
+							reqd: 1,
+							label: __('Stock Qty'),
+							in_list_view: 1
+						},
+						],
+						data: cur_frm.doc.items
+					}];
+					var d = new frappe.ui.Dialog({
+						title: __('Select Items to Create Stock Entry'),
+						fields: fields,
+						primary_action: function() {
+							var data = d.get_values();
+							me.frm.call({
+								method: 'make_stock_entries',
+								args: {
+									items: data,
+									company: me.frm.doc.company,
+									sales_order: me.frm.docname,
+									project: me.frm.project
+								},
+								freeze: true,
+								callback: function(r) {
+									if(r.message) {
+										frappe.msgprint({
+											message: __('Stock Entry Created: {0}', [r.message.map(function(d) {
+													return repl('<a href="/app/stock-entry/%(name)s">%(name)s</a>', {name:d})
+												}).join(', ')]),
+											indicator: 'green'
+										})
+									}
+									d.hide();
+								}
+							});
+						},
+						primary_action_label: __('Create')
+					});
+					d.show();
+				}
+			}
+		});
+	*/
+
+frappe.ui.form.on('Task',{
+refresh: function(frm,doc){
+    cur_frm.add_custom_button("Make Stock Entry",()=>make_stock_entry(),__('Create'));
+ function make_stock_entry() {
+		frappe.call({
+			'method': 'construction.construction.task.get_material_items',
+			args: 	{'docname': cur_frm.doc.nx_boq_id},
+			callback: function(r) {
+	       if(!r.exc) {
+					const fields = [{
+						label: 'Items',
+						fieldtype: 'Table',
+						fieldname: 'items',
+						description: __('Select Material and Qty for Stock Entry'),
+						fields: [{
+							fieldtype: 'Read Only',
+							fieldname: 'item_code',
+							label: __('Item Code'),
+							in_list_view: 1,
+							read_only: 1
+						}, {
+							fieldtype: 'Read Only',
+							fieldname: 'qty',
+							reqd: 1,
+							label: __('Qty'),
+							in_list_view: 1,
+							read_only: 1
+						},{
+							fieldtype: 'Float',
+							fieldname: 'stock_qty',
+							reqd: 1,
+							label: __('Stock Qty'),
+							in_list_view: 1,
+					
+						},{
+							fieldtype: 'Data',
+							fieldname: 'material_entry_name',
+							reqd: 1,
+							label: __('Material Entry Detail'),
+							hidden: 0
+						}],
+						data: r.message,
+					/*	get_data: () => {
+							return r.message
+						}*/
+					}]
+					var d = new frappe.ui.Dialog({
+						title: __('Select Items for Create Stock  Entry'),
+						fields: fields,
+						primary_action: function() {
+							var data = {items: d.fields_dict.items.grid.get_selected_children()};
+							frappe.call({
+							    'method': 'construction.construction.task.make_stock_entry',
+								args: {
+									'items': data
+								},
+								freeze: true
+							
+							});
+							d.hide();
+						},
+						primary_action_label: __('Create')
+					});
+					d.show();
+				}
+			}
+		});
+ }
+          
+ 			cur_frm.add_custom_button(__('BOQ'),
+				function() {
+				    if(cur_frm.doc.project === undefined || cur_frm.doc.project === "" ){
+				        frappe.throw("Enter the project or BOQ")
+				    }
+				new frappe.ui.form.MultiSelectDialog({
+                        doctype: "BOQ",
+                         target: cur_frm,
+                         setters: {
+                                project: cur_frm.doc.project,
+                                project_structure:cur_frm.doc.nx_project_structure,
+                                item_of_work:cur_frm.doc.nx_item_of_work
+                                },
+                            
+                        get_query() {
+                    return {
+                        filters: { docstatus: ['=', 1],status:["=","Not Scheduled"],item_of_work:["=",cur_frm.doc.nx_item_of_work]}
+                        };
+                },
+                action(selections) {
+
+                        for(let b in selections){
+                            frappe.db.get_doc("BOQ",selections[b]).then(doc => {
+                                cur_frm.set_value("nx_boq_id",doc.name);
+                                cur_frm.set_value("subject",doc.project);
+                                cur_frm.set_value("project",doc.project);
+                                cur_frm.set_value("project_name",doc.project);
+                                cur_frm.set_value("nx_item_of_work",doc.item_of_work);
+                                cur_frm.set_value("nx_item_of_work_name",doc.item_of_work_name);
+                                cur_frm.set_value("nx_primary_labour_qty",doc.primary_labour_qty);
+                                cur_frm.set_value("nx_project_structure",doc.project_structure);
+                                cur_frm.set_value("nx_qty",doc.est_total_qty);
+                                cur_frm.set_value("nx_tender_qty",doc.tender_qty);
+                                cur_frm.set_value("nx_non_tender_qty",doc.non_tender_qty);
+                                
+
+    	
+    					    //cur_dialog.hide();
+    					  frappe.ui.hide_open_dialog();
+    					    
+                            });
+                        }
+					    
+                     }
+                });
+                
+				 
+				}, __("Get Items From"));
+
+ 
+  
+
+}
+
+});
